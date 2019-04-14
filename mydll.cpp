@@ -2,11 +2,11 @@
 #include"mydll.h"
 #include"definition.h"
 /*
-基本的四个添加指令的命令
-info.myCommandList.addCommand(Produce,aim_tower_id,HeavyArcher);//造兵命令，第二个参数是造兵的塔id，第三个是造的兵种
-info.myCommandList.addCommand(Attack,aim_soldier_id,x_position,y_position);//攻击命令，第二个参数是发起攻击的士兵id，第三和第四个参数是目标的x，y位置
-info.myCommandList.addCommand(Upgrade,aim_tower_id);//升级命令，第二个参数是欲升级的塔id
-info.myCommandList.addCommand(Move,aim_soldier_id,UP,distance);//移动命令，第二个参数是欲移动的士兵id，第三个参数是移动方向，第四个参数是移动距离
+鍩烘湰鐨勫洓涓坊鍔犳寚浠ょ殑鍛戒护
+info.myCommandList.addCommand(Produce,aim_tower_id,HeavyArcher);//閫犲叺鍛戒护锛岀浜屼釜鍙傛暟鏄�犲叺鐨勫id锛岀涓変釜鏄�犵殑鍏电
+info.myCommandList.addCommand(Attack,aim_soldier_id,x_position,y_position);//鏀诲嚮鍛戒护锛岀浜屼釜鍙傛暟鏄彂璧锋敾鍑荤殑澹叺id锛岀涓夊拰绗洓涓弬鏁版槸鐩爣鐨剎锛寉浣嶇疆
+info.myCommandList.addCommand(Upgrade,aim_tower_id);//鍗囩骇鍛戒护锛岀浜屼釜鍙傛暟鏄鍗囩骇鐨勫id
+info.myCommandList.addCommand(Move,aim_soldier_id,UP,distance);//绉诲姩鍛戒护锛岀浜屼釜鍙傛暟鏄绉诲姩鐨勫＋鍏礽d锛岀涓変釜鍙傛暟鏄Щ鍔ㄦ柟鍚戯紝绗洓涓弬鏁版槸绉诲姩璺濈
 */
 void player_ai(Info& info)
 {
@@ -17,7 +17,4 @@ void player_ai(Info& info)
 				info.myCommandList.addCommand(Produce,i,HeavyArcher);
 		}
 	}
-	int useless = -1;
 }
-
- 
