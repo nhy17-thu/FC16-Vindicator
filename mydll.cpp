@@ -17,6 +17,7 @@ void player_ai(Info& info)
 				info.myCommandList.addCommand(Produce,i,HeavyArcher);
 		}
 	}
+	int useless = -1;
 }
 
  
