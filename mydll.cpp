@@ -97,22 +97,11 @@ void StartStrategy(Info& info) {
 			MoveToTarget(info, LK, targetTower.position);
 		}
 		else {
-			TPoint target;
-			bool targetFound = false;
 			for (int dx = -1; dx <= 1; ++dx) {
 				for (int dy = -1; dy <= 1; ++dy) {
-					TPoint tempPoint = info.pointInfo[LK.x_position + dx][LK.y_position + dy];
-					if (tempPoint.occupied_type == tower && GetDistance(tempPoint, LK.position) <= 1) {
-						target = tempPoint;
-						targetFound = true;
-						break;
-					}
+					info.myCommandList.addCommand(Attack, LK.id, LK.x_position+dx, LK.y_position+dy);
 				}
-				if (targetFound)
-					break;
 			}
-			info.myCommandList.addCommand(Attack, LK.id, target.x, target.y);
 		}
 	}
 }
-
