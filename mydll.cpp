@@ -1,4 +1,5 @@
 #include<stdio.h>
+#include<algorithm>
 #include<cmath>
 #include"mydll.h"
 #include"definition.h"
@@ -15,19 +16,21 @@ bool startStageFinished = false;
 bool towerFound = false;
 TowerInfo targetTower;
 struct mySoldier;
+struct enemyTarget;
 double GetDistance(TPoint& p1, TPoint& p2);
 int GetDistance1(TPoint& p1, TPoint& p2);
 void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar);	//最简单的移动方式：横着走再竖着走，从soldier.position到tar
 void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar);
 void StartStrategy(Info& info);	//开局策略：生产轻骑兵并抢占最近的塔
 void updateTargetsPriority(Info& info);
+int unitattack(Info& info, mySoldier attacker, enemyTarget target);
 
 //以下是存储信息的全局变量
 int myid = 0;
 int mytownum = 1;
 int mysodnum = 0;
 int mode = 0;
-struct mySoldier 
+struct mySoldier
 {
 	int player = 0;
 	int id = 0;
@@ -66,15 +69,18 @@ int findtarget(Info &info) {
 	//update target
 	for (unsigned int i = 0; i < target.size(); i++) target[i].disappeared = true;
 	for (unsigned int i = 0; i < enemysod.size(); i++) {//soldier
+		bool found = false;
 		for (unsigned int j = 0; j < target.size(); j++) {
 			if (!target[j].type) continue;
 			if (target[j].id == enemysod[i].id) {//update old enemy soldier
+				found = true;
 				target[j].disappeared = false;
 				target[j].index = i;
 				target[j].pos = enemysod[i].lastpos;//此处也假定了lastpos = pos
 			}
 		}
 		//add new enemy soldier
+		if (found) continue;
 		enemyTarget t;
 		t.disappeared = false;
 		t.id = enemysod[i].id;
@@ -84,15 +90,18 @@ int findtarget(Info &info) {
 		target.push_back(t);
 	}
 	for (unsigned int i = 0; i < enemytow.size(); i++) {
+		bool found = false;
 		for (unsigned int j = 0; j < target.size(); j++) {
 			if (target[j].type) continue;
 			if (target[j].id == enemytow[i].id) {
+				found = true;
 				target[j].disappeared = false;
 				target[j].index = i;
 				target[j].pos = enemytow[i].pos;
 			}
 		}
 		//add new enemy tower
+		if (found) continue;
 		enemyTarget t;
 		t.disappeared = false;
 		t.id = enemytow[i].id;
@@ -102,13 +111,34 @@ int findtarget(Info &info) {
 		target.push_back(t);
 	}
 	//calculate the priority of each target
+	for (int i = target.size() - 1; i >= 0; i--) {
+		if (target[i].disappeared) target.erase(target.begin() + i);
+	}
+	updateTargetsPriority(info);
 	return 0;
 }
 
 
 int attack(Info& info)
 {
-
+	int size = target.size();
+	for (int i = 0; i < size; i++)
+	{
+		for (int j = size - 2; j >= i; j--)
+		{
+			if (target[j].attackpriority < target[j + 1].attackpriority) {
+				swap(target[j], target[j + 1]);
+			}
+		}
+	}
+	for (int i = 0; i < mysodnum; i++)
+	{
+		unitattack(info, mysod[i], target[0]);
+	}
+	for (int i = 0; i < mytownum; i++)
+	{
+		info.myCommandList.addCommand(Produce, mytow[i].id, HeavyKnight);
+	}
 	return 0;
 }
 int judgemode(Info& info)
@@ -178,17 +208,17 @@ int updateinfo(Info& info) {
 	}
 	return 0;
 }
-int unitattack(Info& info,mySoldier attacker,enemyTarget target)
+int unitattack(Info& info, mySoldier attacker, enemyTarget target)
 {
-	bool inplace = 0;
+	bool inplace = false;
 	int x_pos = 0;
 	int y_pos = 0;
-	if (target.type == 1)
+	if (target.type)
 	{
 		double dis = GetDistance(attacker.lastpos, target.pos);
-		if (dis < attacker.range) 
-		{ 
-			inplace = 1; 
+		if (dis <= attacker.range + 0.1)
+		{
+			inplace = true;
 			x_pos = target.pos.x;
 			y_pos = target.pos.y;
 		}
@@ -198,9 +228,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 		for (int i = 0; i < 1; i++)
 		{
 			double dis = GetDistance(attacker.lastpos, target.pos);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target.pos.x;
 				y_pos = target.pos.y;
 				break;
@@ -208,9 +238,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			TPoint target1 = target.pos;
 			target1.x -= 1;
 			dis = GetDistance(attacker.lastpos, target1);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target1.x;
 				y_pos = target1.y;
 				break;
@@ -219,9 +249,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			target2.x -= 1;
 			target2.y += 1;
 			dis = GetDistance(attacker.lastpos, target2);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target2.x;
 				y_pos = target2.y;
 				break;
@@ -229,9 +259,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			TPoint target3 = target.pos;
 			target3.y += 1;
 			dis = GetDistance(attacker.lastpos, target3);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target3.x;
 				y_pos = target3.y;
 				break;
@@ -240,9 +270,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			target4.x += 1;
 			target4.y += 1;
 			dis = GetDistance(attacker.lastpos, target4);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target4.x;
 				y_pos = target4.y;
 				break;
@@ -250,9 +280,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			TPoint target5 = target.pos;
 			target5.x += 1;
 			dis = GetDistance(attacker.lastpos, target5);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target5.x;
 				y_pos = target5.y;
 				break;
@@ -261,9 +291,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			target6.x += 1;
 			target6.y -= 1;
 			dis = GetDistance(attacker.lastpos, target6);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target6.x;
 				y_pos = target6.y;
 				break;
@@ -271,9 +301,9 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			TPoint target7 = target.pos;
 			target7.y -= 1;
 			dis = GetDistance(attacker.lastpos, target7);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target7.x;
 				y_pos = target7.y;
 				break;
@@ -282,24 +312,24 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			target8.x -= 1;
 			target8.y -= 1;
 			dis = GetDistance(attacker.lastpos, target8);
-			if (dis < attacker.range)
+			if (dis <= attacker.range + 0.1)
 			{
-				inplace = 1;
+				inplace = true;
 				x_pos = target8.x;
 				y_pos = target8.y;
 				break;
 			}
 		}
 	}
-	if (inplace == 1)
+	if (inplace)
 	{
-		info.myCommandList.addCommand(Attack,attacker.id, x_pos, y_pos);
+		info.myCommandList.addCommand(Attack, attacker.id, x_pos, y_pos);
 	}
 	else
 	{
 		TPoint movetarget;
 		int distance1 = INT_MAX;
-		if (target.type = 1)
+		if (target.type)
 		{
 			TPoint movetargetlist[4];
 			movetargetlist[0].x = target.pos.x;
@@ -313,7 +343,7 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			for (int i = 0; i < 4; i++)
 			{
 				int temp_dis = GetDistance1(attacker.lastpos, movetargetlist[i]);
-				if (movetargetlist[i].occupied == 0 && temp_dis < distance1)
+				if (!(info.pointInfo[movetargetlist[i].x][movetargetlist[i].y].occupied) && temp_dis < distance1)
 				{
 					movetarget = movetargetlist[i];
 					distance1 = temp_dis;
@@ -350,7 +380,7 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 			for (int i = 0; i < 12; i++)
 			{
 				int temp_dis = GetDistance1(attacker.lastpos, movetargetlist[i]);
-				if (movetargetlist[i].occupied==0 && temp_dis < distance1)
+				if (!(info.pointInfo[movetargetlist[i].x][movetargetlist[i].y].occupied) && temp_dis < distance1)
 				{
 					movetarget = movetargetlist[i];
 					distance1 = temp_dis;
@@ -369,12 +399,13 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 		for (int j = 0; j < 50; j++)
 		{
 			tem.x = i; tem.y = j;
-			if (GetDistance(attacker.lastpos, tem) < attacker.range)
+			if (GetDistance(attacker.lastpos, tem) <= attacker.range)
 			{
 				info.myCommandList.addCommand(Attack, attacker.id, tem.x, tem.y);
 			}
 		}
 	}
+	return 0;
 }
 
 void player_ai(Info& info)
@@ -405,7 +436,7 @@ int GetDistance1(TPoint& p1, TPoint& p2) {
 
 //最简单的移动方式：横着走再竖着走，从soldier.position到tar
 void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
-	{		
+	{
 		int deltaX = tar.x - soldier.x_position;
 		int deltaY = tar.y - soldier.y_position;
 		if (deltaX == 0 && deltaY == 0)	//无需移动
@@ -426,7 +457,7 @@ void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
 }
 
 void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar) {
-	{		
+	{
 		int deltaX = tar.x - soldier.lastpos.x;
 		int deltaY = tar.y - soldier.lastpos.y;
 		if (deltaX == 0 && deltaY == 0)	//无需移动
@@ -456,7 +487,7 @@ void StartStrategy(Info& info) {
 		}
 	}
 
-	if (info.round > 5) 
+	if (info.round > 5)
 	{
 		startStageFinished = true;
 		return;
@@ -497,7 +528,6 @@ void StartStrategy(Info& info) {
 		}*/
 	}
 }
-
 void updateTargetsPriority(Info& info) {
 	for (int i = 0; i < target.size(); ++i) {
 		int priority = 0;
