@@ -19,10 +19,72 @@ double GetDistance(TPoint& p1, TPoint& p2);
 void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar);	//最简单的移动方式：横着走再竖着走，从soldier.position到tar
 void StartStrategy(Info& info);	//开局策略：生产轻骑兵并抢占最近的塔
 
+//以下是存储信息的全局变量
+int myid=0;
+int mytownum=1;
+int mysodnum=0;
+int mode = 0;
+struct mySoldier
+{
+	int player=0;
+	int id=0;
+	int type=0;
+	int blood=100;
+	bool defense=0;//是否是用来防守的重弓兵
+	TPoint lastpos;
+	int outdated;//信息过时几回合
+};
+struct myTower
+{
+	int player = 0;
+	int id = 0;
+	int level = 0;
+	int blood = 100;
+};
+struct enemyTarget
+{
+	bool type;//0 tower ;1 sodier
+	int id;
+	int danger;
+	int attackpirority;
+};
+vector<myTower> mytow;
+vector<myTower> alltow;
+vector<mySoldier> mysod;
+vector<mySoldier> allsod;
+vector<enemyTarget> target;
+
+int findtarget()
+{
+
+}
+
+int attack()
+{
+
+}
+int judgemode()
+{
+	//not ready;建造重弓兵，并移动至合适的位置
+	//safe;没有战事，但自己也没有多余兵力进攻
+	//attack;准备进攻敌方塔
+	//underattack;自己的塔被攻击/正在和敌人交火
+}
+int updateinfo(Info& info)
+{
+	myid = info.myID;
+	//mysodnum
+}
+
 void player_ai(Info& info)
 {
 	if (!startStageFinished) {
 		StartStrategy(info);
+	} else {
+		updateinfo(info);
+		mode = judgemode();
+		findtarget();
+		attack();
 	}
 }
 
