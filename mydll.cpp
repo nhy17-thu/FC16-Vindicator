@@ -14,11 +14,13 @@ info.myCommandList.addCommand(Move,aim_soldier_id,UP,distance);//移动命令，
 bool startStageFinished = false;
 bool towerFound = false;
 TowerInfo targetTower;
-
+struct mySoldier;
 double GetDistance(TPoint& p1, TPoint& p2);
 int GetDistance1(TPoint& p1, TPoint& p2);
 void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar);	//最简单的移动方式：横着走再竖着走，从soldier.position到tar
+void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar);
 void StartStrategy(Info& info);	//开局策略：生产轻骑兵并抢占最近的塔
+void updateTargetsPriority(Info& info);
 
 //以下是存储信息的全局变量
 int myid = 0;
@@ -45,13 +47,14 @@ struct myTower
 	int blood = 100;
 	TPoint pos;
 };
-struct enemyTarget
-{
+struct enemyTarget {
 	bool type;//0 tower ;1 sodier
+	int index;//在enemytow和enemysod中的下标
 	int id;
 	int danger;
 	int attackpriority;
 	TPoint pos;
+	bool disappeared;//在最新的info里没找到
 };
 vector<myTower> mytow;
 vector<myTower> enemytow;
@@ -59,11 +62,49 @@ vector<mySoldier> mysod;
 vector<mySoldier> enemysod;
 vector<enemyTarget> target;
 
-int findtarget(Info& info)
-{
-
+int findtarget(Info &info) {
+	//update target
+	for (unsigned int i = 0; i < target.size(); i++) target[i].disappeared = true;
+	for (unsigned int i = 0; i < enemysod.size(); i++) {//soldier
+		for (unsigned int j = 0; j < target.size(); j++) {
+			if (!target[j].type) continue;
+			if (target[j].id == enemysod[i].id) {//update old enemy soldier
+				target[j].disappeared = false;
+				target[j].index = i;
+				target[j].pos = enemysod[i].lastpos;//此处也假定了lastpos = pos
+			}
+		}
+		//add new enemy soldier
+		enemyTarget t;
+		t.disappeared = false;
+		t.id = enemysod[i].id;
+		t.index = i;
+		t.pos = enemysod[i].lastpos;//此处也假定了lastpos = pos
+		t.type = 1;
+		target.push_back(t);
+	}
+	for (unsigned int i = 0; i < enemytow.size(); i++) {
+		for (unsigned int j = 0; j < target.size(); j++) {
+			if (target[j].type) continue;
+			if (target[j].id == enemytow[i].id) {
+				target[j].disappeared = false;
+				target[j].index = i;
+				target[j].pos = enemytow[i].pos;
+			}
+		}
+		//add new enemy tower
+		enemyTarget t;
+		t.disappeared = false;
+		t.id = enemytow[i].id;
+		t.index = i;
+		t.pos = enemytow[i].pos;//此处也假定了lastpos = pos
+		t.type = 0;
+		target.push_back(t);
+	}
+	//calculate the priority of each target
 	return 0;
 }
+
 
 int attack(Info& info)
 {
@@ -89,7 +130,7 @@ int updateinfo(Info& info) {
 	mysodnum = 0;
 	//mode = 0?
 	//towers
-	for (int i = 0; i < info.towerInfo.size(); i++) {
+	for (unsigned int i = 0; i < info.towerInfo.size(); i++) {
 		myTower temp;
 		if (info.towerInfo[i].owner == info.myID) {
 			mytownum++;
@@ -110,7 +151,7 @@ int updateinfo(Info& info) {
 		}
 	}
 	//soldiers
-	for (int i = 0; i < info.soldierInfo.size(); i++) {
+	for (unsigned int i = 0; i < info.soldierInfo.size(); i++) {
 		mySoldier temp;
 		if (info.soldierInfo[i].owner == info.myID) {
 			mysodnum++;
@@ -135,6 +176,7 @@ int updateinfo(Info& info) {
 			enemysod.push_back(temp);
 		}
 	}
+	return 0;
 }
 int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 {
@@ -256,9 +298,81 @@ int unitattack(Info& info,mySoldier attacker,enemyTarget target)
 	else
 	{
 		TPoint movetarget;
+		int distance1 = INT_MAX;
 		if (target.type = 1)
 		{
-			////////////////////////////////////
+			TPoint movetargetlist[4];
+			movetargetlist[0].x = target.pos.x;
+			movetargetlist[0].y = target.pos.y + 1;
+			movetargetlist[1].x = target.pos.x + 1;
+			movetargetlist[1].y = target.pos.y;
+			movetargetlist[2].x = target.pos.x;
+			movetargetlist[2].y = target.pos.y - 1;
+			movetargetlist[3].x = target.pos.x - 1;
+			movetargetlist[3].y = target.pos.y;
+			for (int i = 0; i < 4; i++)
+			{
+				int temp_dis = GetDistance1(attacker.lastpos, movetargetlist[i]);
+				if (movetargetlist[i].occupied == 0 && temp_dis < distance1)
+				{
+					movetarget = movetargetlist[i];
+					distance1 = temp_dis;
+				}
+			}
+		}
+		else
+		{
+			TPoint movetargetlist[12];
+			movetargetlist[0].x = target.pos.x - 1;
+			movetargetlist[0].y = target.pos.y + 2;
+			movetargetlist[1].x = target.pos.x;
+			movetargetlist[1].y = target.pos.y + 2;
+			movetargetlist[2].x = target.pos.x + 1;
+			movetargetlist[2].y = target.pos.y + 2;
+			movetargetlist[3].x = target.pos.x + 2;
+			movetargetlist[3].y = target.pos.y + 1;
+			movetargetlist[4].x = target.pos.x + 2;
+			movetargetlist[4].y = target.pos.y;
+			movetargetlist[5].x = target.pos.x + 2;
+			movetargetlist[5].y = target.pos.y - 1;
+			movetargetlist[6].x = target.pos.x + 1;
+			movetargetlist[6].y = target.pos.y - 2;
+			movetargetlist[7].x = target.pos.x;
+			movetargetlist[7].y = target.pos.y - 2;
+			movetargetlist[8].x = target.pos.x - 1;
+			movetargetlist[8].y = target.pos.y - 2;
+			movetargetlist[9].x = target.pos.x - 2;
+			movetargetlist[9].y = target.pos.y - 1;
+			movetargetlist[10].x = target.pos.x - 2;
+			movetargetlist[10].y = target.pos.y;
+			movetargetlist[11].x = target.pos.x - 2;
+			movetargetlist[11].y = target.pos.y + 1;
+			for (int i = 0; i < 12; i++)
+			{
+				int temp_dis = GetDistance1(attacker.lastpos, movetargetlist[i]);
+				if (movetargetlist[i].occupied==0 && temp_dis < distance1)
+				{
+					movetarget = movetargetlist[i];
+					distance1 = temp_dis;
+				}
+			}
+		}
+		if (distance1 < 100)
+		{
+			MoveToTarget(info, attacker, movetarget);
+		}
+	}
+	//乱打
+	TPoint tem;
+	for (int i = 0; i < 50; i++)
+	{
+		for (int j = 0; j < 50; j++)
+		{
+			tem.x = i; tem.y = j;
+			if (GetDistance(attacker.lastpos, tem) < attacker.range)
+			{
+				info.myCommandList.addCommand(Attack, attacker.id, tem.x, tem.y);
+			}
 		}
 	}
 }
@@ -291,7 +405,7 @@ int GetDistance1(TPoint& p1, TPoint& p2) {
 
 //最简单的移动方式：横着走再竖着走，从soldier.position到tar
 void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
-	while (soldier.move_left > 0) {		//todo：下达move命令以后会立刻扣除移动力吗？
+	{		
 		int deltaX = tar.x - soldier.x_position;
 		int deltaY = tar.y - soldier.y_position;
 		if (deltaX == 0 && deltaY == 0)	//无需移动
@@ -311,7 +425,26 @@ void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
 	}
 }
 
-
+void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar) {
+	{		
+		int deltaX = tar.x - soldier.lastpos.x;
+		int deltaY = tar.y - soldier.lastpos.y;
+		if (deltaX == 0 && deltaY == 0)	//无需移动
+			return;
+		if (deltaX > 0) {
+			info.myCommandList.addCommand(Move, soldier.id, RIGHT, deltaX);
+		}
+		else if (deltaX < 0) {
+			info.myCommandList.addCommand(Move, soldier.id, LEFT, -deltaX);
+		}
+		if (deltaY > 0) {
+			info.myCommandList.addCommand(Move, soldier.id, UP, deltaY);
+		}
+		else if (deltaY < 0) {
+			info.myCommandList.addCommand(Move, soldier.id, DOWN, -deltaY);
+		}
+	}
+}
 
 //开局策略：生产轻骑兵并抢占最近的塔
 void StartStrategy(Info& info) {
@@ -325,7 +458,8 @@ void StartStrategy(Info& info) {
 
 	if (info.round > 5) 
 	{
-		startStageFinished = 1;
+		startStageFinished = true;
+		return;
 		//轻骑兵已生产
 		if (towerFound && targetTower.owner == info.myID) {
 			startStageFinished = true;
@@ -361,5 +495,19 @@ void StartStrategy(Info& info) {
 				}
 			}
 		}*/
+	}
+}
+
+void updateTargetsPriority(Info& info) {
+	for (int i = 0; i < target.size(); ++i) {
+		int priority = 0;
+		int dis = 0x7fffffff;
+		for (int j = 0; j < mytownum; ++j) {
+			int temp = GetDistance(mytow[j].pos, target[i].pos);
+			if (temp < dis) {
+				dis = temp;
+			}
+		}
+		target[i].attackpriority = 10000 / (dis * dis);
 	}
 }
