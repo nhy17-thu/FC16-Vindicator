@@ -10,6 +10,8 @@ info.myCommandList.addCommand(Upgrade,aim_tower_id);//升级命令，第二个�
 info.myCommandList.addCommand(Move,aim_soldier_id,UP,distance);//移动命令，第二个参数是欲移动的士兵id，第三个参数是移动方向，第四个参数是移动距离
 */
 
+//test
+
 //在开始策略中使用的全局变量，后续可优化
 bool startStageFinished = false;
 bool towerFound = false;
