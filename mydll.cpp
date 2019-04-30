@@ -420,7 +420,6 @@ void player_ai(Info& info)
         findtarget(info);
         attack(info);
     }
-    cout << info.round << endl;
 }
 
 
