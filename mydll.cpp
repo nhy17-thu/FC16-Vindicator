@@ -19,17 +19,50 @@ struct mySoldier;
 struct enemyTarget;
 double GetDistance(TPoint& p1, TPoint& p2);
 int GetDistance1(TPoint& p1, TPoint& p2);
+
+int attack(Info& info);
+int findtarget(Info &info);
+int judgemode(Info& info);
+int updateinfo(Info& info);
+
 void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar);    //最简单的移动方式：横着走再竖着走，从soldier.position到tar
 void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar);
 void StartStrategy(Info& info);    //开局策略：生产轻骑兵并抢占最近的塔
 void updateTargetsPriority(Info& info);
 int unitattack(Info& info, mySoldier attacker, enemyTarget target);
+double GetDistance(TPoint& p1, TPoint& p2);
+int GetDistance1(TPoint& p1, TPoint& p2);
+void StartStrategy(Info& info);
+void ProduceAndUpgrade(Info& info);
 
 //以下是存储信息的全局变量
 int myid = 0;
 int mytownum = 1;
 int mysodnum = 0;
-int mode = 0;
+
+/*enum mode {
+    not_ready,//建造重弓兵，并移动至合适的位置
+    safe,//没有战事，但自己也没有多余兵力进攻
+    attack_tower,//正在进攻敌方塔
+    tower_underattack,//自己的塔被攻击
+    fire//正在和敌人交火
+};*/
+
+enum TowerMode {
+    towerSafe,//没有被打
+    attack_safe,//正在被打但安全
+    attack_danger,//正在被打且危险
+    enemyTower
+};
+
+enum SoldierMode {
+    soldierSafe,//没有战事，但自己也没有多余兵力进攻
+    not_in_pos,//重弓兵未就位
+    fire,//正在和敌人交火
+    attack_tower,//正在进攻敌方塔
+    enemySoldier
+};
+
 struct mySoldier
 {
     int player = 0;
@@ -40,16 +73,25 @@ struct mySoldier
     TPoint lastpos;
     //int outdated;//信息过时几回合
     double range;
-    
+    int move_left = 0;
+    int move = 0;
+    SoldierMode mode;
+    int blood_last;
+    bool disappeared;
 };
+
 struct myTower
 {
     int player = 0;
     int id = 0;
     int level = 0;
     int blood = 100;
+    int blood_last;
     TPoint pos;
+    TowerMode mode;
+    bool disappeared;
 };
+
 struct enemyTarget {
     bool type;//0 tower ;1 sodier
     int index;//在enemytow和enemysod中的下标
@@ -59,6 +101,7 @@ struct enemyTarget {
     TPoint pos;
     bool disappeared;//在最新的info里没找到
 };
+
 vector<myTower> mytow;
 vector<myTower> enemytow;
 vector<mySoldier> mysod;
@@ -143,12 +186,14 @@ int attack(Info& info)
 }
 int judgemode(Info& info)
 {
-    //not ready;建造重弓兵，并移动至合适的位置
+    //not_ready;建造重弓兵，并移动至合适的位置
     //safe;没有战事，但自己也没有多余兵力进攻
-    //attack;准备进攻敌方塔
-    //underattack;自己的塔被攻击/正在和敌人交火
+    //attack_tower;正在进攻敌方塔
+    //tower_underattack;自己的塔被攻击
+    //fire;正在和敌人交火
     return 0;
 }
+
 int updateinfo(Info& info) {
     mytow.clear();
     enemytow.clear();
@@ -160,54 +205,131 @@ int updateinfo(Info& info) {
     mysodnum = 0;
     //mode = 0?
     //towers
-    for (unsigned int i = 0; i < info.towerInfo.size(); i++) {
-        myTower temp;
-        if (info.towerInfo[i].owner == info.myID) {
-            mytownum++;
-            temp.player = info.myID;
-            temp.id = info.towerInfo[i].id;
-            temp.level = info.towerInfo[i].level;
-            temp.blood = info.towerInfo[i].blood;
-            temp.pos = info.towerInfo[i].position;
-            mytow.push_back(temp);
-        }
-        else {
-            temp.player = info.towerInfo[i].owner;
-            temp.id = info.towerInfo[i].id;
-            temp.level = info.towerInfo[i].level;
-            temp.blood = info.towerInfo[i].blood;
-            temp.pos = info.towerInfo[i].position;
-            enemytow.push_back(temp);
+    for(unsigned int i = 0; i < mytow.size(); i++) mytow[i].disappeared = true;
+    for(unsigned int i = 0; i < enemytow.size(); i++) enemytow[i].disappeared = true;
+    for(unsigned int i = 0; i < info.towerInfo.size(); i++) {
+        if(info.towerInfo[i].owner == info.myID) {
+            bool found = false;
+            for(unsigned int j = 0; j < mytow.size(); j++) {//遍历已存着的自己的塔
+                if(info.towerInfo[i].id != mytow[j].id) continue;
+                mytow[j].disappeared = false;
+                found = true;
+                mytow[j].level = info.towerInfo[i].level;
+                mytow[j].blood_last = mytow[j].blood;
+                mytow[j].blood = info.towerInfo[j].blood;
+                break;
+            }
+            if(!found) {
+                myTower temp;
+                mytownum++;
+                temp.player = info.myID;
+                temp.id = info.towerInfo[i].id;
+                temp.level = info.towerInfo[i].level;
+                temp.blood = info.towerInfo[i].blood;
+                temp.blood_last = temp.blood;
+                temp.pos = info.towerInfo[i].position;
+                temp.disappeared = false;
+                mytow.push_back(temp);
+            }
+        } else {
+            bool found = false;
+            for(int j = 0; j < enemytow.size(); j++) {
+                if(enemytow[j].id != info.towerInfo[i].id) continue;
+                enemytow[j].disappeared = false;
+                found = true;
+                enemytow[j].player = info.towerInfo[i].owner;
+                enemytow[j].level = info.towerInfo[i].level;
+                enemytow[j].blood_last = enemytow[j].blood;
+                enemytow[j].blood = info.towerInfo[i].blood;
+                break;
+            }
+            if(!found) {
+                myTower temp;
+                temp.player = info.towerInfo[i].owner;
+                temp.id = info.towerInfo[i].id;
+                temp.level = info.towerInfo[i].level;
+                temp.blood = info.towerInfo[i].blood;
+                temp.blood_last = temp.blood;
+                temp.pos = info.towerInfo[i].position;
+                temp.mode = enemyTower;
+                temp.disappeared = false;
+                enemytow.push_back(temp);
+            } 
         }
     }
+    for(int i = 0; i < enemytow.size(); i++) if(enemytow[i].disappeared) enemytow.erase(enemytow.begin() + i);
+    for(int i = 0; i < mytow.size(); i++) if(mytow[i].disappeared) mytow.erase(mytow.begin() + i);
     //soldiers
-    for (unsigned int i = 0; i < info.soldierInfo.size(); i++) {
-        mySoldier temp;
-        if (info.soldierInfo[i].owner == info.myID) {
-            mysodnum++;
-            temp.player = info.myID;
-            temp.id = info.soldierInfo[i].id;
-            temp.type = info.soldierInfo[i].type;
-            temp.blood = info.soldierInfo[i].blood;
-            //假设重工兵都是用来防守的
-            temp.defense = (info.soldierInfo[i].type == HeavyArcher ? 1 : 0);
-            temp.lastpos = info.soldierInfo[i].position;
-            temp.range = info.soldierInfo[i].range;
-            mysod.push_back(temp);
-        }
-        else {
-            temp.player = info.soldierInfo[i].owner;
-            temp.id = info.soldierInfo[i].id;
-            temp.type = info.soldierInfo[i].type;
-            temp.blood = info.soldierInfo[i].blood;
-            temp.defense = 0;
-            temp.lastpos = info.soldierInfo[i].position;
-            temp.range = info.soldierInfo[i].range;
-            enemysod.push_back(temp);
+    for(unsigned int i = 0; i < mysod.size(); i++) mysod[i].disappeared = true;
+    for(unsigned int i = 0; i < enemysod.size(); i++) enemysod[i].disappeared = true;
+    
+    for(unsigned int i = 0; i < info.soldierInfo.size(); i++) {
+        if(info.soldierInfo[i].owner == info.myID) {
+            bool found = false;
+            for(unsigned int j = 0; j < mysod.size(); j++) {
+                if(mysod[j].id != info.soldierInfo[i].id) continue;
+                found = true;
+                mysod[j].blood_last = mysod[j].blood;
+                mysod[j].blood = info.soldierInfo[i].blood;
+                mysod[j].lastpos = info.soldierInfo[i].position;
+                mysod[j].move_left = info.soldierInfo[i].move_left;
+                mysod[j].move = info.soldierInfo[i].move_ability;
+                mysod[j].disappeared = false;
+            }
+            if(!found) {
+                mySoldier temp;
+                
+                mysodnum++;
+                temp.player = info.myID;
+                temp.id = info.soldierInfo[i].id;
+                temp.type = info.soldierInfo[i].type;
+                temp.blood_last = temp.blood;
+                temp.blood = info.soldierInfo[i].blood;
+                //假设重工兵都是用来防守的
+                temp.defense = (info.soldierInfo[i].type == HeavyArcher ? 1 : 0);
+                temp.lastpos = info.soldierInfo[i].position;
+                temp.range = info.soldierInfo[i].range;
+                temp.move_left = info.soldierInfo[i].move_left;
+                temp.move = info.soldierInfo[i].move_ability;
+                temp.disappeared = false;
+                mysod.push_back(temp);
+            }
+        } else {
+            bool found = false;
+            for(unsigned int j = 0; j < enemysod.size(); j++) {
+                if(info.soldierInfo[i].id != enemysod[j].id) continue;
+                found = true;
+                enemysod[j].player = info.soldierInfo[i].owner;
+                enemysod[j].blood_last = enemysod[j].blood;
+                enemysod[j].blood = info.soldierInfo[i].blood;
+                enemysod[j].lastpos = info.soldierInfo[i].position;
+                enemysod[j].move_left = info.soldierInfo[i].move_left;
+                enemysod[j].move = info.soldierInfo[i].move_ability;
+                enemysod[j].disappeared = false;
+            }
+            if(!found) {//所有mode都没法判断
+                mySoldier temp;
+                temp.player = info.soldierInfo[i].owner;
+                temp.id = info.soldierInfo[i].id;
+                temp.type = info.soldierInfo[i].type;
+                temp.blood_last = info.soldierInfo[i].blood;
+                temp.blood = temp.blood_last;
+                temp.defense = 0;
+                temp.lastpos = info.soldierInfo[i].position;
+                temp.range = info.soldierInfo[i].range;
+                temp.move_left = info.soldierInfo[i].move_left;
+                temp.move = info.soldierInfo[i].move_ability;
+                temp.disappeared = false;
+                enemysod.push_back(temp);
+            }
+            
         }
     }
+    for(unsigned int i = 0; i < mysod.size(); i++) if(mysod[i].disappeared) mysod.erase(mysod.begin() + i);
+    for(unsigned int i = 0; i < enemysod.size(); i++) if(enemysod[i].disappeared) enemysod.erase(enemysod.begin() + i);
     return 0;
 }
+
 int unitattack(Info& info, mySoldier attacker, enemyTarget target)
 {
     bool inplace = false;
@@ -416,7 +538,7 @@ void player_ai(Info& info)
     }
     {
         updateinfo(info);
-        mode = judgemode(info);
+        //mode = judgemode(info);
         findtarget(info);
         attack(info);
     }
@@ -434,9 +556,8 @@ int GetDistance1(TPoint& p1, TPoint& p2) {
 
 
 //最简单的移动方式：横着走再竖着走，从soldier.position到tar
-void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
-    {
-        int deltaX = tar.x - soldier.x_position;
+/*void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
+    int deltaX = tar.x - soldier.x_position;
         int deltaY = tar.y - soldier.y_position;
         if (deltaX == 0 && deltaY == 0)    //无需移动
             return;
@@ -452,27 +573,88 @@ void MoveToTarget(Info& info, TSoldier& soldier, TPoint& tar) {
         else if (deltaY < 0) {
             info.myCommandList.addCommand(Move, soldier.id, DOWN, -deltaY);
         }
-    }
 }
-
-void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar) {
+*/
+void MoveToTarget(Info& info, mySoldier& soldier, TPoint& tar) 
+{
+    int deltaX = 0;
+    int deltaY = 0;
+    if (GetDistance1(soldier.lastpos, tar) < soldier.move_left)
     {
-        int deltaX = tar.x - soldier.lastpos.x;
-        int deltaY = tar.y - soldier.lastpos.y;
-        if (deltaX == 0 && deltaY == 0)    //无需移动
-            return;
-        if (deltaX > 0) {
-            info.myCommandList.addCommand(Move, soldier.id, RIGHT, deltaX);
+        deltaX = tar.x - soldier.lastpos.x;
+        deltaY = tar.y - soldier.lastpos.y;
+    }
+    else
+    {
+        vector<TPoint> tar1;
+        for (int x = soldier.lastpos.x - soldier.move_left; x < soldier.lastpos.x + soldier.move_left + 1; x++)
+        {
+            for (int y = soldier.lastpos.y - soldier.move_left; y < soldier.lastpos.y + soldier.move_left + 1; y++)
+            {
+                if (x >= 0 && x < 50 && y >= 0 && y < 50)
+                {
+                    TPoint temp = info.pointInfo[x][y];
+                    if (GetDistance1(soldier.lastpos, temp) > soldier.move_left)continue;
+                    if (temp.occupied)continue;
+                    tar1.push_back(temp);
+                }
+            }
         }
-        else if (deltaX < 0) {
-            info.myCommandList.addCommand(Move, soldier.id, LEFT, -deltaX);
+        int *score = new int[tar1.size()];
+        for (int i = 0; i < tar1.size(); i++)
+        {
+            score[i] = -GetDistance1(tar1[i], tar) * 2;
+            if (tar1[i].land == River)score[i] -= (soldier.move - 1) * 2;
+            if (tar1[i].land == Forest)
+            {
+                if (soldier.type == LightArcher)score[i]++;
+                if (soldier.type == HeavyArcher)score[i]++;
+                if (soldier.type == LightKnight)score[i]++;
+                if (soldier.type == HeavyKnight)score[i]++;
+            }
+            if (tar1[i].land == Mountain)
+            {
+                if (soldier.type == LightKnight)score[i] -= 4;
+                if (soldier.type == HeavyKnight)score[i] -= 4;
+                if (soldier.type == Mangonel)score[i] -= 2;
+            }
+            if (tar1[i].land == Dorm)
+            {
+                if (soldier.type == HeavyArcher)score[i]++;
+                if (soldier.type == HeavyInfantry)score[i]++;
+                if (soldier.type == HeavyKnight)score[i]++;
+            }
         }
-        if (deltaY > 0) {
-            info.myCommandList.addCommand(Move, soldier.id, UP, deltaY);
+        TPoint tarr;
+        int scorr = -10000;
+        for (int i = 0; i < tar1.size(); i++)
+        {
+            if (score[i] > scorr)
+            {
+                scorr = score[i];
+                tarr = tar1[i];
+            }
         }
-        else if (deltaY < 0) {
-            info.myCommandList.addCommand(Move, soldier.id, DOWN, -deltaY);
-        }
+        deltaX = tarr.x - soldier.lastpos.x;
+        deltaY = tarr.y - soldier.lastpos.y;
+    }
+    if (deltaX == 0 && deltaY == 0)    //无需移动
+        return;
+    if (deltaX > 0)
+    {
+        info.myCommandList.addCommand(Move, soldier.id, RIGHT, deltaX);
+    }
+    else if (deltaX < 0) 
+    {
+        info.myCommandList.addCommand(Move, soldier.id, LEFT, -deltaX);
+    }
+    if (deltaY > 0) 
+    {
+        info.myCommandList.addCommand(Move, soldier.id, UP, deltaY);
+    }
+    else if (deltaY < 0) 
+    {
+        info.myCommandList.addCommand(Move, soldier.id, DOWN, -deltaY);
     }
 }
 
@@ -552,6 +734,75 @@ void updateTargetsPriority(Info& info) {
                 }
             }
             target[i].attackpriority = 10000 / (dis * dis);
+        }
+    }
+}
+
+/* Thoughts in Produce&Upgrade
+ * 选择最安全的，能在死前把兵造出来的塔造兵
+ * 只要有资源就造兵
+ * 如果人口不够（且资源充足）就升级塔
+ */
+void ProduceAndUpgrade(Info& info) {
+    PlayerInfo me;
+    for (auto iter : info.playerInfo) {
+        if (iter.id == info.myID) {
+            me = iter;
+            break;
+        }
+    }
+    if (mytownum == 0)
+        return;
+    // 找到相对最安全的塔升级/造兵
+    // 最安全：没有被打，血量大于阈值，靠边
+    myTower *targetTow = nullptr;
+    TPoint central;
+    central.x = central.y = 25;
+    TowerMode status = towerSafe;
+    while (!targetTow) {
+        if (status == attack_danger) {
+            // 挑一个还能活得最久的
+            int expectLife = -1;
+            for (auto iter : mytow) {
+                int tempLife = (iter.blood_last - iter.blood) / iter.blood;
+                if (tempLife > expectLife) {
+                    expectLife = tempLife;
+                    targetTow = &iter;
+                }
+            }
+            break;
+        } else {
+            double furthermostDis = -1;
+            for (auto iter : mytow) {
+                if (iter.mode != status)
+                    continue;
+                double tempDis = GetDistance(iter.pos, central);
+                if (tempDis > furthermostDis) {
+                    furthermostDis = tempDis;
+                    targetTow = &iter;
+                }
+            }
+        }
+        if (status == towerSafe) status = attack_safe;
+        else if (status == attack_safe) status = attack_danger;
+    }
+
+    if (me.population >= me.max_population) {    // 当现有人口数恰等于最大人口数时，是否可以生产？
+        info.myCommandList.addCommand(Upgrade, targetTow->id);
+    } else {
+        // 重骑兵重弓兵2：1
+        // todo: 根据敌人部队组成针对性造兵
+        int hKnightNum = 0, hArcherNum = 0;
+        for (auto iter : mysod) {
+            if (iter.type == HeavyKnight)
+                ++hKnightNum;
+            else if (iter.type == HeavyArcher)
+                ++hArcherNum;
+        }
+        if (hKnightNum < 2 * hArcherNum) {
+            info.myCommandList.addCommand(Produce, targetTow->id, HeavyKnight);
+        } else {
+            info.myCommandList.addCommand(Produce, targetTow->id, HeavyArcher);
         }
     }
 }
