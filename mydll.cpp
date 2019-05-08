@@ -11,7 +11,7 @@
  info.myCommandList.addCommand(Move,aim_soldier_id,UP,distance);//移动命令，第二个参数是欲移动的士兵id，第三个参数是移动方向，第四个参数是移动距离
  */
 
-//在开始策略中使用的全局变量，后续可优化
+ //在开始策略中使用的全局变量，后续可优化
 bool startStageFinished = false;
 bool towerFound = false;
 TowerInfo targetTower;
@@ -220,27 +220,25 @@ int judgemode(Info &info) {
         if (mytow[i].blood_last > mytow[i].blood) {//attack_safe和attack_danger的界限划定为6回合
             if (mytow[i].blood / double(mytow[i].blood_last - mytow[i].blood) >= 6) mytow[i].mode = attack_safe;
             else mytow[i].mode = attack_danger;
-        } else mytow[i].mode = towerSafe;
+        }
+        else mytow[i].mode = towerSafe;
     }
 
     return 0;
 }
 
 int updateinfo(Info &info) {
-    mytow.clear();
-    enemytow.clear();
-    mysod.clear();
-    enemysod.clear();
-    //target.clear();
     myid = info.myID;
-    mytownum = 0;
-    mysodnum = 0;
     //mode = 0?
     //towers
     for (unsigned int i = 0; i < mytow.size(); i++) mytow[i].disappeared = true;
     for (unsigned int i = 0; i < enemytow.size(); i++) enemytow[i].disappeared = true;
     for (unsigned int i = 0; i < info.towerInfo.size(); i++) {
-        if (info.round < 50 && info.towerInfo[i].id == 8) continue;//50回合之前不打中塔
+        cout << "error1\n";
+        if (info.round < 50 && info.towerInfo[i].id == 8) {
+            cout << "error2\n";
+            continue;//50回合之前不打中塔
+        }
         if (info.towerInfo[i].owner == info.myID) {
             bool found = false;
             for (unsigned int j = 0; j < mytow.size(); j++) {//遍历已存着的自己的塔
@@ -254,7 +252,6 @@ int updateinfo(Info &info) {
             }
             if (!found) {
                 myTower temp;
-                mytownum++;
                 temp.player = info.myID;
                 temp.id = info.towerInfo[i].id;
                 temp.level = info.towerInfo[i].level;
@@ -264,7 +261,8 @@ int updateinfo(Info &info) {
                 temp.disappeared = false;
                 mytow.push_back(temp);
             }
-        } else {
+        }
+        else {
             bool found = false;
             for (int j = 0; j < enemytow.size(); j++) {
                 if (enemytow[j].id != info.towerInfo[i].id) continue;
@@ -312,7 +310,6 @@ int updateinfo(Info &info) {
             if (!found) {
                 mySoldier temp;
 
-                mysodnum++;
                 temp.player = info.myID;
                 temp.id = info.soldierInfo[i].id;
                 temp.type = info.soldierInfo[i].type;
@@ -327,7 +324,8 @@ int updateinfo(Info &info) {
                 temp.disappeared = false;
                 mysod.push_back(temp);
             }
-        } else {
+        }
+        else {
             bool found = false;
             for (unsigned int j = 0; j < enemysod.size(); j++) {
                 if (info.soldierInfo[i].id != enemysod[j].id) continue;
@@ -362,6 +360,8 @@ int updateinfo(Info &info) {
     for (unsigned int i = 0; i < enemysod.size(); i++)
         if (enemysod[i].disappeared)
             enemysod.erase(enemysod.begin() + i);
+    mysodnum = mysod.size();
+    mytownum = mytow.size();
     return 0;
 }
 
@@ -376,7 +376,8 @@ int unitattack(Info &info, mySoldier attacker, enemyTarget target) {
             x_pos = target.pos.x;
             y_pos = target.pos.y;
         }
-    } else {
+    }
+    else {
         for (int i = 0; i < 1; i++) {
             double dis = GetDistance(attacker.lastpos, target.pos);
             if (dis <= attacker.range + 0.1) {
@@ -465,7 +466,8 @@ int unitattack(Info &info, mySoldier attacker, enemyTarget target) {
     }
     if (inplace) {
         info.myCommandList.addCommand(Attack, attacker.id, x_pos, y_pos);
-    } else {
+    }
+    else {
         TPoint movetarget;
         int distance1 = INT_MAX;
         if (target.type) {
@@ -485,7 +487,8 @@ int unitattack(Info &info, mySoldier attacker, enemyTarget target) {
                     distance1 = temp_dis;
                 }
             }
-        } else {
+        }
+        else {
             TPoint movetargetlist[12];
             movetargetlist[0].x = target.pos.x - 1;
             movetargetlist[0].y = target.pos.y + 2;
@@ -594,7 +597,8 @@ void MoveToTarget(Info &info, mySoldier &soldier, TPoint &tar) {
     if (GetDistance1(soldier.lastpos, tar) < soldier.move_left) {
         deltaX = tar.x - soldier.lastpos.x;
         deltaY = tar.y - soldier.lastpos.y;
-    } else {
+    }
+    else {
         vector<TPoint> tar1;
         for (int x = soldier.lastpos.x - soldier.move_left; x < soldier.lastpos.x + soldier.move_left + 1; x++) {
             for (int y = soldier.lastpos.y - soldier.move_left; y < soldier.lastpos.y + soldier.move_left + 1; y++) {
@@ -642,12 +646,14 @@ void MoveToTarget(Info &info, mySoldier &soldier, TPoint &tar) {
         return;
     if (deltaX > 0) {
         info.myCommandList.addCommand(Move, soldier.id, RIGHT, deltaX);
-    } else if (deltaX < 0) {
+    }
+    else if (deltaX < 0) {
         info.myCommandList.addCommand(Move, soldier.id, LEFT, -deltaX);
     }
     if (deltaY > 0) {
         info.myCommandList.addCommand(Move, soldier.id, UP, deltaY);
-    } else if (deltaY < 0) {
+    }
+    else if (deltaY < 0) {
         info.myCommandList.addCommand(Move, soldier.id, DOWN, -deltaY);
     }
 }
@@ -716,7 +722,8 @@ void updateTargetsPriority(Info &info) {
             }
             target[i].attackpriority = 10000 / (dis * dis);
         }
-    } else {
+    }
+    else {
         for (int i = 0; i < target.size(); ++i) {
             int priority = 0;
             int dis = 0x7fffffff;
@@ -764,7 +771,8 @@ void ProduceAndUpgrade(Info &info) {
                 }
             }
             break;
-        } else {
+        }
+        else {
             double furthermostDis = -1;
             for (auto iter : mytow) {
                 if (iter.mode != status)
@@ -782,8 +790,9 @@ void ProduceAndUpgrade(Info &info) {
 
     if (me.population >= me.max_population) {    // 当现有人口数恰等于最大人口数时，是否可以生产？
         info.myCommandList.addCommand(Upgrade, targetTow->id);
-    } else {
-        // 重骑兵重弓兵2：1
+    }
+    else {
+        // 重骑兵重弓兵1:2
         // todo: 根据敌人部队组成针对性造兵
         int hKnightNum = 0, hArcherNum = 0;
         for (auto iter : mysod) {
@@ -792,10 +801,11 @@ void ProduceAndUpgrade(Info &info) {
             else if (iter.type == HeavyArcher)
                 ++hArcherNum;
         }
-        if (hKnightNum < 2 * hArcherNum) {
-            info.myCommandList.addCommand(Produce, targetTow->id, HeavyKnight);
-        } else {
+        if (hArcherNum < 2 * hKnightNum) {
             info.myCommandList.addCommand(Produce, targetTow->id, HeavyArcher);
+        }
+        else {
+            info.myCommandList.addCommand(Produce, targetTow->id, HeavyKnight);
         }
     }
 }
