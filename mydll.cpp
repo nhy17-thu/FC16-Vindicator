@@ -227,10 +227,10 @@ int judgemode(Info &info) {
 }
 
 int updateinfo(Info &info) {
-    mytow.clear();
-    enemytow.clear();
-    mysod.clear();
-    enemysod.clear();
+    //mytow.clear();
+    //enemytow.clear();
+    //mysod.clear();
+    //enemysod.clear();
     //target.clear();
     myid = info.myID;
     mytownum = 0;
